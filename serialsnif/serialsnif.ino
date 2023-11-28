@@ -46,9 +46,9 @@ void setup() {
     // Serial port 0 is the debug output port on the USB connector
     Serial.begin(115200);
     // Serial port 1 is the "In" serial port on GPIO 14 for Rx and 32 for Tx
-    Serial1.begin(9600, SERIAL_8N1, 14, 32);
+    Serial1.begin(9600, SERIAL_8N2, 14, 32);
     // Serial port 2 is the "Out" serisl port on standard pins
-    Serial2.begin(9600);
+    Serial2.begin(9600, SERIAL_8N2, 16, 17);
 
     // Connect to the Wifi network
     delay(1000);
@@ -109,31 +109,21 @@ void loop() {
     while (Serial2.available() > 0) {
         ch = Serial2.read();
         Serial1.write(ch);
-        if (inClient.connected()) {
-            inClient.write(ch);
-        }
         sprintf(hexVersion, "i%02X ", ch);
         Serial.print(hexVersion);
-        if (*ssid != 0) {
-            if (ioClient.connected()) {
-                ioClient.print(hexVersion);
-            }
-        }
+        Serial.println();
+        Serial.print(ch);
+        Serial.println();
     }
     // Mirror the output port (serial1) to the input port (serial2)
     while (Serial1.available() > 0) {
         ch = Serial1.read();
         Serial2.write(ch);
-        if (outClient.connected()) {
-            outClient.write(ch);
-        }
         sprintf(hexVersion, "o%02X ", ch);
         Serial.print(hexVersion);
-        if (*ssid != 0) {
-            if (ioClient.connected()) {
-                ioClient.print(hexVersion);
-            }
-        }
+        Serial.println();
+        Serial.print(ch);
+        Serial.println();
     }
     delay(1);
 }
