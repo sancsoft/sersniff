@@ -17,11 +17,17 @@
 #include <esp32-hal.h>
 #include <HardwareSerial.h>
 #include "WiFi.h"
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
 
 // Wireless configuration. If the station id is "", wireless is disabled 
 // for the program and sockets aren't used
-const char* ssid = "";
-const char* password =  "password";
+const char* ssid = "SANCSOFT";
+const char* password =  "aoxomoxoa";
+
+// const char* ssid = "Dencar_ClassyClean";
+// const char* password =  "LtYCSPEPfeUEjsgPnzzREP5D";
+// const char* staticIP = "10.1.135.70";
 
 WiFiServer inServer(8080);
 WiFiServer outServer(8081);
@@ -29,6 +35,32 @@ WiFiServer ioServer(8082);
 WiFiClient inClient;
 WiFiClient outClient;
 WiFiClient ioClient;
+
+
+IPAddress local_IP(192, 168, 5, 77);
+IPAddress gateway(192, 168, 5, 1);
+IPAddress subnet(255, 255, 255, 0);
+
+////////
+// API Configuration
+String apiServer = "https://api-dev.dencar.org/v3.5/";
+StaticJsonDocument<256> postData;
+uint32_t generatedCode = 654321;
+char* generatedTier = "";
+
+
+////////
+// Product information
+const char* BRONZE   = "6db6b50e-f031-4fa8-b706-08df3ad5cd9f";
+const char* SILVER   = "170c2796-cb17-4fcb-87e5-d9f778df1cc0";
+const char* GOLD     = "227316fa-af47-4811-8992-949be9c35fe3";
+const char* PLATINUM = "bace3dcf-4f01-44f7-96dd-cd1e80c2952c";
+
+
+////////
+// Customer information
+const char* CUSTOMER_ID = "dfcfafe7-5d4e-4da1-9386-30b01bdb8aa5";
+const char* SITE_ID     = "5672cea2-6755-4d4b-a469-6773e07ff883";
 
 ////////
 // Setup
@@ -54,6 +86,7 @@ void setup() {
     delay(1000);
     if (*ssid !=0)
     {
+        // WiFi.config(local_IP, gateway, subnet);
         WiFi.begin(ssid, password);
         while (WiFi.status() != WL_CONNECTED) {
             delay(1000);
@@ -69,11 +102,16 @@ void setup() {
         inClient = inServer.available();
         outClient = outServer.available();
         ioClient = ioServer.available();
+
+
+        PostPumpCode();
     }
     else
     {
         Serial.println("No SSID provided. Wireless won't be used.");
     }
+
+    
 }
 
 ////////
@@ -125,5 +163,52 @@ void loop() {
         Serial.print(ch);
         Serial.println();
     }
+
     delay(1);
+}
+
+////////
+// PostPumpcode
+// Gets the code generated 
+void PostPumpCode() {
+    if (WiFi.status() == WL_CONNECTED) {
+        HTTPClient http;
+
+        String codePath = apiServer + "GasStationCodes/creategasstationcodes";
+        Serial.println(codePath);
+        http.begin(codePath.c_str());
+        http.addHeader("Accept", "application/json");
+        http.addHeader("Content-Type", "application/json"); 
+
+        // Your Domain name with URL path or IP address with path
+        
+        
+        postData["customerId"]        = CUSTOMER_ID;
+        postData["siteId"]            = SITE_ID;
+        postData["generatedCode"]     = generatedCode;
+        postData["productTemplateId"] = GOLD;
+
+        String serializedData;
+        serializeJsonPretty(postData, serializedData);
+
+        // serializedData = postData.as<String>();
+        // JsonObject obj = postData.to<JsonObject>();
+        Serial.println(serializedData);
+
+        // Send HTTP GET request
+        int httpResponseCode = http.POST(serializedData);
+        
+        if (httpResponseCode > 0) {
+            Serial.print("HTTP Response code: ");
+            Serial.println(httpResponseCode);
+            String payload = http.getString();
+            Serial.println(payload);
+        }
+        else {
+            Serial.print("Error code: ");
+            Serial.println(httpResponseCode);
+        }
+        // Free resources
+        http.end();
+    }
 }
