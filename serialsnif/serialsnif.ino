@@ -46,7 +46,7 @@ IPAddress subnet(255, 255, 255, 0);
 String apiServer = "https://api-dev.dencar.org/v3.5/";
 StaticJsonDocument<256> postData;
 uint32_t generatedCode = 654321;
-char* generatedTier = "";
+String generatedTier = "";
 
 
 ////////
@@ -55,6 +55,11 @@ const char* BRONZE   = "6db6b50e-f031-4fa8-b706-08df3ad5cd9f";
 const char* SILVER   = "170c2796-cb17-4fcb-87e5-d9f778df1cc0";
 const char* GOLD     = "227316fa-af47-4811-8992-949be9c35fe3";
 const char* PLATINUM = "bace3dcf-4f01-44f7-96dd-cd1e80c2952c";
+
+//Register Tiers
+const char* ECON = "CD001";
+const char* PLUS = "CD01";
+const char* ULT  = "CD1";
 
 
 ////////
@@ -104,14 +109,12 @@ void setup() {
         ioClient = ioServer.available();
 
 
-        PostPumpCode();
+        // PostPumpCode();
     }
     else
     {
         Serial.println("No SSID provided. Wireless won't be used.");
     }
-
-    
 }
 
 ////////
@@ -119,6 +122,13 @@ void setup() {
 // Send the data received on serial 1 to serial 2 and vice versa. Also sends a copy
 // to the sockets if anyone is listening - in (raw), out (raw), io (ascii printout)
 // An ascii printout is also sent to the debug port.
+
+String registerTier = "";
+char previousChar = ' ';
+bool buildRequest = false;
+bool tierDetermined = false;
+
+
 void loop() {
 
     char ch;
@@ -147,7 +157,7 @@ void loop() {
     while (Serial2.available() > 0) {
         ch = Serial2.read();
         Serial1.write(ch);
-        sprintf(hexVersion, "i%02X ", ch);
+        sprintf(hexVersion, "i ICS %02X ", ch);
         Serial.print(hexVersion);
         Serial.println();
         Serial.print(ch);
@@ -157,11 +167,83 @@ void loop() {
     while (Serial1.available() > 0) {
         ch = Serial1.read();
         Serial2.write(ch);
-        sprintf(hexVersion, "o%02X ", ch);
+        sprintf(hexVersion, "o REGISTER %02X ", ch);
         Serial.print(hexVersion);
         Serial.println();
         Serial.print(ch);
         Serial.println();
+
+        switch(ch) {
+            case 'C':
+                buildRequest = true;
+                registerTier = ch;
+                previousChar = ch;
+                break;
+
+            case 'D':
+                if (buildRequest && previousChar == 'C') {
+                    registerTier += ch;
+                    previousChar = ch;
+                }
+                else {
+                    buildRequest = false;
+                    tierDetermined = false;
+                    registerTier = "";
+                    previousChar = ' ';
+                }
+                break;
+
+            case '0':
+                if (buildRequest && previousChar == 'D') {
+                    registerTier += ch;
+                }
+                break;
+
+            case '1':
+                if (buildRequest) {
+                    registerTier += ch;
+                    const char* converted = registerTier.c_str();
+
+                    if (strcmp(converted, ECON) == 0) {
+                        generatedTier = BRONZE;
+                        tierDetermined = true;
+                    }
+                    else if (strcmp(converted, PLUS) == 0) {
+                        generatedTier = SILVER;
+                        tierDetermined = true;
+                    }
+                    else if (strcmp(converted, ULT) == 0) {
+                        generatedTier = GOLD;
+                        tierDetermined = true;
+                    }
+                    else {
+                        tierDetermined = false;
+                    }
+
+                    if (tierDetermined) {
+                        Serial.println("Tier determined...");
+                        Serial.println("Register tier - " + registerTier);
+                        Serial.println("Associated product - " + generatedTier);
+                    }
+                    else {
+                        tierDetermined = false;
+                        Serial.println("Register tier - " + registerTier);
+                        Serial.println("Unknown tier selected");
+                    }
+                    
+                    
+                    registerTier = "";
+                }
+                buildRequest = false;
+                break;
+
+            default:
+                tierDetermined = false;
+                buildRequest = false;
+                registerTier = "";
+                previousChar = ' ';
+                break;
+        }
     }
 
     delay(1);
