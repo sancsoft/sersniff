@@ -37,15 +37,14 @@ WiFiClient outClient;
 WiFiClient ioClient;
 
 
-IPAddress local_IP(192, 168, 5, 77);
-IPAddress gateway(192, 168, 5, 1);
-IPAddress subnet(255, 255, 255, 0);
+// IPAddress local_IP(192, 168, 5, 77);
+// IPAddress gateway(192, 168, 5, 1);
+// IPAddress subnet(255, 255, 255, 0);
 
 ////////
 // API Configuration
 String apiServer = "https://api-dev.dencar.org/v3.5/";
 StaticJsonDocument<256> postData;
-uint32_t generatedCode = 654321;
 String generatedTier = "";
 
 
@@ -60,6 +59,11 @@ const char* PLATINUM = "bace3dcf-4f01-44f7-96dd-cd1e80c2952c";
 const char* ECON = "CD001";
 const char* PLUS = "CD01";
 const char* ULT  = "CD1";
+
+// ASCII Key Inputs
+const char STX = "02"; // Start of text (ctrl + b)
+const char DLE = "10"; // Clear for next command (ctrl + p)
+const char ZERO = "30"; // Zero (0)
 
 
 ////////
@@ -124,15 +128,38 @@ void setup() {
 // An ascii printout is also sent to the debug port.
 
 String registerTier = "";
-char previousChar = ' ';
+char previousRegChar = ' ';
 bool buildRequest = false;
 bool tierDetermined = false;
 
+String icsCode = "";
+uint8_t icsDigits = 0;
+uint8_t codeDigits = 0;
+char previousICSChar[5];
+bool buildCode = false;
+bool codeDetermined = false;
+
+void stopBuilding() {
+    Serial.println("Stopped building...");
+    icsDigits = 0;
+    buildCode = false;
+    
+    buildRequest = false;
+    codeDetermined = false;
+    icsCode = "";
+    strcpy(previousICSChar,"");
+
+    tierDetermined = false;
+    registerTier = "";
+    previousRegChar = ' ';
+}
 
 void loop() {
 
     char ch;
     char hexVersion[5];
+    char sourcePrint[5];
+    int ICSVal;
 
     // handle inbound connections on the socket servers
     if (*ssid != 0)
@@ -157,17 +184,80 @@ void loop() {
     while (Serial2.available() > 0) {
         ch = Serial2.read();
         Serial1.write(ch);
-        sprintf(hexVersion, "i ICS %02X ", ch);
+        sprintf(hexVersion, "%02X", ch);
+        
+        Serial.print("in ICS ");
         Serial.print(hexVersion);
+
         Serial.println();
         Serial.print(ch);
         Serial.println();
+
+        if (tierDetermined) {
+            if (buildCode) {
+                if (icsDigits < 5) {
+                    
+                    Serial.println(ch);
+                    Serial.println(isdigit(ch));
+
+                    if (isdigit(ch)) {
+                        icsCode += ch;
+                        icsDigits++;
+
+                        if (icsDigits == 5) {
+                            Serial.println("Generated code - " + icsCode);
+                            PostPumpCode(icsCode);
+                            stopBuilding();
+                        }
+                    }
+                    else {
+                        Serial.println("Value is not a digit");
+                        stopBuilding();
+                    }
+                }
+                else {
+                    Serial.println("Generated code longer than expected");
+                    stopBuilding();
+                }
+            }
+            else {
+                if (strcmp(hexVersion, "10") == 0) {
+                    Serial.println("Code gen check 1");
+                    memcpy(previousICSChar, hexVersion, sizeof(hexVersion));
+                }
+                else if (strcmp(hexVersion, "30") == 0) {
+                    if (strcmp(previousICSChar, "10") == 0) {
+                        memcpy(previousICSChar, hexVersion, sizeof(hexVersion));
+                        Serial.println("Code gen check 2");
+                    }
+                    else {
+                        Serial.println("Previous value not 10");
+                        stopBuilding();
+                    }
+                }
+                else if (strcmp(hexVersion, "02") == 0) {
+                    if (strcmp(previousICSChar, "30") == 0) {
+                        memcpy(previousICSChar, hexVersion, sizeof(hexVersion));
+                        Serial.println("Code gen check 3");
+                        buildCode = true;
+                        Serial.println("Start code building...");
+                    }
+                    else {
+                        Serial.println("Previous value not 30");
+                        stopBuilding();
+                    }
+                }
+                else {
+                    Serial.println("Value not in sequence");
+                }
+            }
+        }
     }
     // Mirror the output port (serial1) to the input port (serial2)
     while (Serial1.available() > 0) {
         ch = Serial1.read();
         Serial2.write(ch);
-        sprintf(hexVersion, "o REGISTER %02X ", ch);
+        sprintf(hexVersion, "out REGISTER %02X ", ch);
         Serial.print(hexVersion);
         Serial.println();
         Serial.print(ch);
@@ -175,32 +265,30 @@ void loop() {
 
         switch(ch) {
             case 'C':
+                Serial.println("Started building request...");
                 buildRequest = true;
                 registerTier = ch;
-                previousChar = ch;
+                previousRegChar = ch;
                 break;
 
             case 'D':
-                if (buildRequest && previousChar == 'C') {
+                if (buildRequest == true && previousRegChar == 'C') {
                     registerTier += ch;
-                    previousChar = ch;
+                    previousRegChar = ch;
                 }
                 else {
-                    buildRequest = false;
-                    tierDetermined = false;
-                    registerTier = "";
-                    previousChar = ' ';
+                    stopBuilding();
                 }
                 break;
 
             case '0':
-                if (buildRequest && previousChar == 'D') {
+                if (buildRequest == true && previousRegChar == 'D') {
                     registerTier += ch;
                 }
                 break;
 
             case '1':
-                if (buildRequest) {
+                if (buildRequest == true) {
                     registerTier += ch;
                     const char* converted = registerTier.c_str();
 
@@ -220,28 +308,29 @@ void loop() {
                         tierDetermined = false;
                     }
 
-                    if (tierDetermined) {
-                        Serial.println("Tier determined...");
-                        Serial.println("Register tier - " + registerTier);
-                        Serial.println("Associated product - " + generatedTier);
+                    if (tierDetermined == true) {
+                        Serial.print("Tier determined...");
+                        Serial.println();
+                        Serial.print("Register tier - " + registerTier);
+                        Serial.println();
+                        Serial.print("Associated product - " + generatedTier);
+                        Serial.println();
                     }
                     else {
-                        tierDetermined = false;
-                        Serial.println("Register tier - " + registerTier);
-                        Serial.println("Unknown tier selected");
+                        Serial.print("Unknown tier selected");
+                        Serial.println();
+                        stopBuilding();
                     }
                     
                     
                     registerTier = "";
                 }
+
                 buildRequest = false;
                 break;
 
             default:
-                tierDetermined = false;
-                buildRequest = false;
-                registerTier = "";
-                previousChar = ' ';
+                // stopBuilding();
                 break;
         }
     }
@@ -252,7 +341,7 @@ void loop() {
 ////////
 // PostPumpcode
 // Gets the code generated 
-void PostPumpCode() {
+void PostPumpCode(String generatedCode) {
     if (WiFi.status() == WL_CONNECTED) {
         HTTPClient http;
 
@@ -267,8 +356,8 @@ void PostPumpCode() {
         
         postData["customerId"]        = CUSTOMER_ID;
         postData["siteId"]            = SITE_ID;
-        postData["generatedCode"]     = generatedCode;
-        postData["productTemplateId"] = GOLD;
+        postData["generatedCode"]     = atoi(generatedCode.c_str());
+        postData["productTemplateId"] = generatedTier;
 
         String serializedData;
         serializeJsonPretty(postData, serializedData);
