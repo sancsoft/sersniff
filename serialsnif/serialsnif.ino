@@ -61,15 +61,32 @@ const char* PLUS = "CD01";
 const char* ULT  = "CD1";
 
 // ASCII Key Inputs
-const char STX = "02"; // Start of text (ctrl + b)
-const char DLE = "10"; // Clear for next command (ctrl + p)
-const char ZERO = "30"; // Zero (0)
+const char* STX  = "02"; // Start of text (ctrl + b)
+const char* DLE  = "10"; // Clear for next command (ctrl + p)
+const char* ZERO = "30"; // Zero (0)
 
 
 ////////
 // Customer information
 const char* CUSTOMER_ID = "dfcfafe7-5d4e-4da1-9386-30b01bdb8aa5";
 const char* SITE_ID     = "5672cea2-6755-4d4b-a469-6773e07ff883";
+
+
+////////
+//Tier building
+String registerTier = "";
+char previousRegChar = ' ';
+bool buildRequest = false;
+bool tierDetermined = false;
+
+//Code building
+String icsCode = "";
+uint8_t icsDigits = 0;
+uint8_t codeDigits = 0;
+char previousICSChar[5];
+bool buildCode = false;
+bool codeDetermined = false;
+uint8_t sequenceFail = 0;
 
 ////////
 // Setup
@@ -111,9 +128,6 @@ void setup() {
         inClient = inServer.available();
         outClient = outServer.available();
         ioClient = ioServer.available();
-
-
-        // PostPumpCode();
     }
     else
     {
@@ -126,34 +140,6 @@ void setup() {
 // Send the data received on serial 1 to serial 2 and vice versa. Also sends a copy
 // to the sockets if anyone is listening - in (raw), out (raw), io (ascii printout)
 // An ascii printout is also sent to the debug port.
-
-String registerTier = "";
-char previousRegChar = ' ';
-bool buildRequest = false;
-bool tierDetermined = false;
-
-String icsCode = "";
-uint8_t icsDigits = 0;
-uint8_t codeDigits = 0;
-char previousICSChar[5];
-bool buildCode = false;
-bool codeDetermined = false;
-
-void stopBuilding() {
-    Serial.println("Stopped building...");
-    icsDigits = 0;
-    buildCode = false;
-    
-    buildRequest = false;
-    codeDetermined = false;
-    icsCode = "";
-    strcpy(previousICSChar,"");
-
-    tierDetermined = false;
-    registerTier = "";
-    previousRegChar = ' ';
-}
-
 void loop() {
 
     char ch;
@@ -196,10 +182,6 @@ void loop() {
         if (tierDetermined) {
             if (buildCode) {
                 if (icsDigits < 5) {
-                    
-                    Serial.println(ch);
-                    Serial.println(isdigit(ch));
-
                     if (isdigit(ch)) {
                         icsCode += ch;
                         icsDigits++;
@@ -207,36 +189,36 @@ void loop() {
                         if (icsDigits == 5) {
                             Serial.println("Generated code - " + icsCode);
                             PostPumpCode(icsCode);
-                            stopBuilding();
+                            StopBuilding();
                         }
                     }
                     else {
                         Serial.println("Value is not a digit");
-                        stopBuilding();
+                        StopBuilding();
                     }
                 }
                 else {
                     Serial.println("Generated code longer than expected");
-                    stopBuilding();
+                    StopBuilding();
                 }
             }
             else {
-                if (strcmp(hexVersion, "10") == 0) {
+                if (strcmp(hexVersion, DLE) == 0) {
                     Serial.println("Code gen check 1");
                     memcpy(previousICSChar, hexVersion, sizeof(hexVersion));
                 }
-                else if (strcmp(hexVersion, "30") == 0) {
-                    if (strcmp(previousICSChar, "10") == 0) {
+                else if (strcmp(hexVersion, ZERO) == 0) {
+                    if (strcmp(previousICSChar, DLE) == 0) {
                         memcpy(previousICSChar, hexVersion, sizeof(hexVersion));
                         Serial.println("Code gen check 2");
                     }
                     else {
                         Serial.println("Previous value not 10");
-                        stopBuilding();
+                        StopBuilding();
                     }
                 }
-                else if (strcmp(hexVersion, "02") == 0) {
-                    if (strcmp(previousICSChar, "30") == 0) {
+                else if (strcmp(hexVersion, STX) == 0) {
+                    if (strcmp(previousICSChar, ZERO) == 0) {
                         memcpy(previousICSChar, hexVersion, sizeof(hexVersion));
                         Serial.println("Code gen check 3");
                         buildCode = true;
@@ -244,11 +226,16 @@ void loop() {
                     }
                     else {
                         Serial.println("Previous value not 30");
-                        stopBuilding();
+                        StopBuilding();
                     }
                 }
                 else {
                     Serial.println("Value not in sequence");
+                    if (++sequenceFail >= 5) {
+                        Serial.println("Code sequence failed, resetting");
+                        StopBuilding();
+                        sequenceFail = 0;
+                    }
                 }
             }
         }
@@ -277,7 +264,7 @@ void loop() {
                     previousRegChar = ch;
                 }
                 else {
-                    stopBuilding();
+                    StopBuilding();
                 }
                 break;
 
@@ -319,7 +306,7 @@ void loop() {
                     else {
                         Serial.print("Unknown tier selected");
                         Serial.println();
-                        stopBuilding();
+                        StopBuilding();
                     }
                     
                     
@@ -356,7 +343,7 @@ void PostPumpCode(String generatedCode) {
         
         postData["customerId"]        = CUSTOMER_ID;
         postData["siteId"]            = SITE_ID;
-        postData["generatedCode"]     = atoi(generatedCode.c_str());
+        postData["generatedCode"]     = generatedCode.c_str();
         postData["productTemplateId"] = generatedTier;
 
         String serializedData;
@@ -382,4 +369,21 @@ void PostPumpCode(String generatedCode) {
         // Free resources
         http.end();
     }
+}
+
+////////
+// StopBuilding
+// Resets variables for tier and code building
+void StopBuilding() {
+    Serial.println("Stopped building...");
+    buildCode = false;
+    buildRequest = false;
+    codeDetermined = false;
+    tierDetermined = false;
+    previousRegChar = ' ';
+    registerTier = "";
+    icsCode = "";
+    icsDigits = 0;
+    sequenceFail = 0;
+    strcpy(previousICSChar,"");
 }
