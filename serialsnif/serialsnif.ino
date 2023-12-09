@@ -22,12 +22,12 @@
 
 // Wireless configuration. If the station id is "", wireless is disabled 
 // for the program and sockets aren't used
-const char* ssid = "SANCSOFT";
-const char* password =  "aoxomoxoa";
+// const char* ssid = "SANCSOFT";
+// const char* password =  "aoxomoxoa";
 
-// const char* ssid = "Dencar_ClassyClean";
-// const char* password =  "LtYCSPEPfeUEjsgPnzzREP5D";
-// const char* staticIP = "10.1.135.70";
+const char* ssid     = "Dencar_ClassyClean";
+const char* password =  "LtYCSPEPfeUEjsgPnzzREP5D";
+const char* staticIP = "10.1.135.70";
 
 WiFiServer inServer(8080);
 WiFiServer outServer(8081);
@@ -37,13 +37,13 @@ WiFiClient outClient;
 WiFiClient ioClient;
 
 
-// IPAddress local_IP(192, 168, 5, 77);
-// IPAddress gateway(192, 168, 5, 1);
-// IPAddress subnet(255, 255, 255, 0);
+IPAddress local_IP(10, 1, 135, 70);
+IPAddress gateway(10, 1, 135, 1);
+IPAddress subnet(255, 255, 255, 0);
 
 ////////
 // API Configuration
-String apiServer = "https://api-dev.dencar.org/v3.5/";
+String apiServer = "https://api.dencar.org/v3.5/";
 StaticJsonDocument<256> postData;
 String generatedTier = "";
 
@@ -64,13 +64,22 @@ const char* ULT  = "CD1";
 const char* STX  = "02"; // Start of text (ctrl + b)
 const char* DLE  = "10"; // Clear for next command (ctrl + p)
 const char* ZERO = "30"; // Zero (0)
+const char* STATUS_RESP = "04"; // Zero (0)
+const char* OE = "0E";
+const char* O7 = "07";
+const char* O5 = "05";
+const char* O35 = "35";
 
 
 ////////
 // Customer information
-const char* CUSTOMER_ID = "dfcfafe7-5d4e-4da1-9386-30b01bdb8aa5";
-const char* SITE_ID     = "5672cea2-6755-4d4b-a469-6773e07ff883";
+// United
+// const char* CUSTOMER_ID = "dfcfafe7-5d4e-4da1-9386-30b01bdb8aa5";
+// const char* SITE_ID     = "5672cea2-6755-4d4b-a469-6773e07ff883";
 
+// Classy Clean
+const char* CUSTOMER_ID = "0261aa56-08d5-4cec-bcbe-f40625283481";
+const char* SITE_ID     = "30967f63-1759-42dc-9e3f-2fd66eefc89f";
 
 ////////
 //Tier building
@@ -112,7 +121,7 @@ void setup() {
     delay(1000);
     if (*ssid !=0)
     {
-        // WiFi.config(local_IP, gateway, subnet);
+        WiFi.config(local_IP, gateway, subnet);
         WiFi.begin(ssid, password);
         while (WiFi.status() != WL_CONNECTED) {
             delay(1000);
@@ -135,6 +144,10 @@ void setup() {
     }
 }
 
+
+bool skipStatus = false;
+bool waitForDLE = false;
+bool sendCode = false;
 ////////
 // Loop
 // Send the data received on serial 1 to serial 2 and vice versa. Also sends a copy
@@ -179,76 +192,222 @@ void loop() {
         Serial.print(ch);
         Serial.println();
 
-        if (tierDetermined) {
-            if (buildCode) {
-                if (icsDigits < 5) {
-                    if (isdigit(ch)) {
-                        icsCode += ch;
-                        icsDigits++;
+        
 
-                        if (icsDigits == 5) {
-                            Serial.println("Generated code - " + icsCode);
-                            PostPumpCode(icsCode);
-                            StopBuilding();
-                        }
-                    }
-                    else {
-                        Serial.println("Value is not a digit");
-                        StopBuilding();
-                    }
-                }
-                else {
-                    Serial.println("Generated code longer than expected");
-                    StopBuilding();
-                }
-            }
-            else {
-                if (strcmp(hexVersion, DLE) == 0) {
-                    Serial.println("Code gen check 1");
-                    memcpy(previousICSChar, hexVersion, sizeof(hexVersion));
-                }
-                else if (strcmp(hexVersion, ZERO) == 0) {
-                    if (strcmp(previousICSChar, DLE) == 0) {
-                        memcpy(previousICSChar, hexVersion, sizeof(hexVersion));
-                        Serial.println("Code gen check 2");
-                    }
-                    else {
-                        Serial.println("Previous value not 10");
-                        StopBuilding();
-                    }
-                }
-                else if (strcmp(hexVersion, STX) == 0) {
-                    if (strcmp(previousICSChar, ZERO) == 0) {
-                        memcpy(previousICSChar, hexVersion, sizeof(hexVersion));
-                        Serial.println("Code gen check 3");
-                        buildCode = true;
-                        Serial.println("Start code building...");
-                    }
-                    else {
-                        Serial.println("Previous value not 30");
-                        StopBuilding();
-                    }
-                }
-                else {
-                    Serial.println("Value not in sequence");
-                    if (++sequenceFail >= 5) {
-                        Serial.println("Code sequence failed, resetting");
-                        StopBuilding();
-                        sequenceFail = 0;
-                    }
-                }
-            }
-        }
+        // if (tierDetermined) {
+        //     if (buildCode) {
+        //         if (icsDigits < 5) {
+        //             if (isdigit(ch)) {
+        //                 icsCode += ch;
+        //                 icsDigits++;
+
+        //                 if (icsDigits == 5) {
+        //                     Serial.println("Generated code - " + icsCode);
+        //                     PostPumpCode(icsCode);
+        //                     StopBuilding();
+        //                 }
+        //             }
+        //             else {
+        //                 Serial.println("Value is not a digit");
+        //                 StopBuilding();
+        //             }
+        //         }
+        //         else {
+        //             Serial.println("Generated code longer than expected");
+        //             StopBuilding();
+        //         }
+        //     }
+        //     else {
+        //         if (strcmp(hexVersion, DLE) == 0) {
+        //             Serial.println("Code gen check 1");
+        //             memcpy(previousICSChar, hexVersion, sizeof(hexVersion));
+        //         }
+        //         else if (strcmp(hexVersion, ZERO) == 0) {
+        //             if (strcmp(previousICSChar, DLE) == 0) {
+        //                 memcpy(previousICSChar, hexVersion, sizeof(hexVersion));
+        //                 Serial.println("Code gen check 2");
+        //             }
+        //             else {
+        //                 Serial.println("Previous value not 10");
+        //                 StopBuilding();
+        //             }
+        //         }
+        //         else if (strcmp(hexVersion, STX) == 0) {
+        //             if (strcmp(previousICSChar, ZERO) == 0) {
+        //                 memcpy(previousICSChar, hexVersion, sizeof(hexVersion));
+        //                 Serial.println("Code gen check 3");
+        //                 buildCode = true;
+        //                 Serial.println("Start code building...");
+        //             }
+        //             else {
+        //                 Serial.println("Previous value not 30");
+        //                 StopBuilding();
+        //             }
+        //         }
+        //         else {
+        //             Serial.println("Value not in sequence");
+        //             if (++sequenceFail >= 5) {
+        //                 Serial.println("Code sequence failed, resetting");
+        //                 StopBuilding();
+        //                 sequenceFail = 0;
+        //             }
+        //         }
+        //     }
+        // }
     }
     // Mirror the output port (serial1) to the input port (serial2)
     while (Serial1.available() > 0) {
         ch = Serial1.read();
-        Serial2.write(ch);
-        sprintf(hexVersion, "out REGISTER %02X ", ch);
+        // Serial2.write(ch);
+        sprintf(hexVersion, "%02X", ch);
+        Serial.print("out REGISTER ");
         Serial.print(hexVersion);
+        
         Serial.println();
         Serial.print(ch);
         Serial.println();
+
+        if (!skipStatus && (strcmp(hexVersion, STATUS_RESP) == 0)) {
+            Serial.println("RESPONDING STATUS WITH 04...");
+            Serial.print(ch);
+            delay(1);
+            Serial1.write('\x04');
+        }
+        else if (sendCode == true  && (strcmp(hexVersion, STATUS_RESP) == 0)) {
+            sendCode = false;
+            Serial.println("SENDING CODE");
+            
+            delay(100);
+            Serial1.write('\x02');
+
+            //Code
+            delay(100);
+            Serial1.write('\x39');
+            delay(100);
+            Serial1.write('\x33');
+            delay(100);
+            Serial1.write('\x38');
+            delay(100);
+            Serial1.write('\x37');
+            delay(100);
+            Serial1.write('\x33');
+
+            Serial.println("SENDING RESP");
+            // RESP
+            delay(100);
+            Serial1.write('\x20');
+            delay(100);
+            Serial1.write('\x20');
+            delay(100);
+            Serial1.write('\x20');
+            delay(100);
+            Serial1.write('\x20');
+            delay(100);
+            Serial1.write('\x20');
+
+            delay(100);
+            Serial1.write('\x30');
+            delay(100);
+            Serial1.write('\x31');
+            delay(100);
+            Serial1.write('\x38');
+            delay(100);
+            Serial1.write('\x30');
+            delay(100);
+            Serial1.write('\x30');
+            delay(100);
+            Serial1.write('\x33');
+            delay(100);
+            Serial1.write('\x30');
+            delay(100);
+            Serial1.write('\x59');
+            delay(100);
+            Serial1.write('\x03');
+            delay(100);
+            Serial1.write('\x76');
+
+            waitForDLE = true;
+            Serial.println("WAIT FOR DLE...");
+        }
+
+
+
+        if (strcmp(hexVersion, OE) == 0) {
+            skipStatus = true;
+            waitForDLE = true;
+            Serial.println("RESPONDING TO 0E...");
+            Serial.print(ch);
+            delay(100);
+            Serial1.write('\x10');
+            delay(100);
+            Serial1.write('\x30');
+            delay(100);
+            Serial1.write('\x02');
+            delay(100);
+            Serial1.write('\x30');
+            delay(100);
+            Serial1.write('\x31');
+            delay(100);
+            Serial1.write('\x03');
+            delay(100);
+            Serial1.write('\x02');
+            delay(100);
+            
+            waitForDLE = true;
+            Serial.println("WAIT FOR DLE...");
+        }
+
+        if (strcmp(hexVersion, O7) == 0) {
+            skipStatus = true;
+            Serial.println("RESPONDING TO 07...");
+            Serial.print(ch);
+            delay(100);
+            Serial1.write('\x10');
+            delay(100);
+            Serial1.write('\x30');
+            delay(100);
+            Serial1.write('\x02');
+            delay(100);
+            Serial1.write('\x30');
+            delay(100);
+            Serial1.write('\x31');
+            delay(100);
+            Serial1.write('\x30');
+            delay(100);
+            Serial1.write('\x30');
+            delay(100);
+            Serial1.write('\x30');
+            delay(100);
+            Serial1.write('\x30');
+            delay(100);
+            Serial1.write('\x03');
+            delay(100);
+            Serial1.write('\x02');
+            delay(100);
+            
+            waitForDLE = true;
+            Serial.println("WAIT FOR DLE...");
+        }
+
+        if (tierDetermined == true && ((strcmp(hexVersion, O5) == 0)) || (strcmp(hexVersion, O35) == 0)) {
+            skipStatus = true;
+            Serial.println("HAVE TIER GOT 5");
+            delay(100);
+            Serial1.write('\x10');
+            delay(100);
+            Serial1.write('\x30');
+
+            sendCode = true;
+            Serial.println("WAITING FOR CODE 04");
+        }
+
+
+        if (waitForDLE == true && (strcmp(hexVersion, ZERO) == 0)) {
+            Serial.println("RECEIVED DLE...");  
+            Serial1.write('\x04');
+            skipStatus = false;
+            waitForDLE = false;
+        }
 
         switch(ch) {
             case 'C':
@@ -302,6 +461,8 @@ void loop() {
                         Serial.println();
                         Serial.print("Associated product - " + generatedTier);
                         Serial.println();
+
+                        Serial.print("WAITING FOR 05...");
                     }
                     else {
                         Serial.print("Unknown tier selected");
