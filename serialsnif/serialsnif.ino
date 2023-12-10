@@ -19,15 +19,19 @@
 #include "WiFi.h"
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include <time.h>
 
 // Wireless configuration. If the station id is "", wireless is disabled 
 // for the program and sockets aren't used
 // const char* ssid = "SANCSOFT";
 // const char* password =  "aoxomoxoa";
 
-const char* ssid     = "Dencar_ClassyClean";
-const char* password =  "LtYCSPEPfeUEjsgPnzzREP5D";
-const char* staticIP = "10.1.135.70";
+// const char* ssid     = "Dencar_ClassyClean";
+// const char* password =  "LtYCSPEPfeUEjsgPnzzREP5D";
+// const char* staticIP = "10.1.135.70";
+
+const char* ssid     = "TylerTestNet";
+const char* password =  "";
 
 WiFiServer inServer(8080);
 WiFiServer outServer(8081);
@@ -37,9 +41,15 @@ WiFiClient outClient;
 WiFiClient ioClient;
 
 
-IPAddress local_IP(10, 1, 135, 70);
-IPAddress gateway(10, 1, 135, 1);
-IPAddress subnet(255, 255, 255, 0);
+// IPAddress local_IP(10, 1, 135, 70);
+// IPAddress gateway(10, 1, 135, 1);
+// IPAddress subnet(255, 255, 255, 0);
+
+
+// Time
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = 3600 * 1;
+const int   daylightOffset_sec = 3600 * 0;
 
 ////////
 // API Configuration
@@ -65,10 +75,11 @@ const char* STX  = "02"; // Start of text (ctrl + b)
 const char* DLE  = "10"; // Clear for next command (ctrl + p)
 const char* ZERO = "30"; // Zero (0)
 const char* STATUS_RESP = "04"; // Zero (0)
-const char* OE = "0E";
-const char* O7 = "07";
-const char* O5 = "05";
-const char* O35 = "35";
+const char* REG_OE = "0E";
+const char* REG_O7 = "07";
+const char* REG_O5 = "05";
+const char* REG_35 = "35"; 
+const char* REG_16 = "16"; 
 
 
 ////////
@@ -97,6 +108,9 @@ bool buildCode = false;
 bool codeDetermined = false;
 uint8_t sequenceFail = 0;
 
+
+
+
 ////////
 // Setup
 // One-time setup function; configures the serial port and connects to the wireless
@@ -121,7 +135,7 @@ void setup() {
     delay(1000);
     if (*ssid !=0)
     {
-        WiFi.config(local_IP, gateway, subnet);
+        // WiFi.config(local_IP, gateway, subnet);
         WiFi.begin(ssid, password);
         while (WiFi.status() != WL_CONNECTED) {
             delay(1000);
@@ -137,6 +151,8 @@ void setup() {
         inClient = inServer.available();
         outClient = outServer.available();
         ioClient = ioServer.available();
+
+        configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
     }
     else
     {
@@ -148,6 +164,8 @@ void setup() {
 bool skipStatus = false;
 bool waitForDLE = false;
 bool sendCode = false;
+bool waitForTA = false;
+bool waitingToSendSTX = false;
 ////////
 // Loop
 // Send the data received on serial 1 to serial 2 and vice versa. Also sends a copy
@@ -273,7 +291,7 @@ void loop() {
             delay(1);
             Serial1.write('\x04');
         }
-        else if (sendCode == true  && (strcmp(hexVersion, STATUS_RESP) == 0)) {
+        else if (sendCode == true && (strcmp(hexVersion, STATUS_RESP) == 0)) {
             sendCode = false;
             Serial.println("SENDING CODE");
             
@@ -327,12 +345,26 @@ void loop() {
             Serial1.write('\x76');
 
             waitForDLE = true;
-            Serial.println("WAIT FOR DLE...");
+            waitForTA = true;
+            Serial.println("WAIT FOR DLE AND 0...");
+        }
+        else if (waitingToSendSTX == true && (strcmp(hexVersion, STATUS_RESP) == 0)) {
+            Serial.println("SENDING STX...");
+            delay(100);
+            Serial1.write('\x02');
+            delay(100);
+            Serial1.write('\x30');
+            delay(100);
+            Serial1.write('\x30');
+            delay(100);
+            Serial1.write('\x03');
+            delay(100);
+            Serial1.write('\x03');
+            waitForDLE = true;
+            Serial.println("WAITING FOR FINAL DLE...");
         }
 
-
-
-        if (strcmp(hexVersion, OE) == 0) {
+        if (strcmp(hexVersion, REG_OE) == 0) {
             skipStatus = true;
             waitForDLE = true;
             Serial.println("RESPONDING TO 0E...");
@@ -357,7 +389,7 @@ void loop() {
             Serial.println("WAIT FOR DLE...");
         }
 
-        if (strcmp(hexVersion, O7) == 0) {
+        if (strcmp(hexVersion, REG_O7) == 0) {
             skipStatus = true;
             Serial.println("RESPONDING TO 07...");
             Serial.print(ch);
@@ -389,7 +421,7 @@ void loop() {
             Serial.println("WAIT FOR DLE...");
         }
 
-        if (tierDetermined == true && ((strcmp(hexVersion, O5) == 0)) || (strcmp(hexVersion, O35) == 0)) {
+        if (tierDetermined == true && ((strcmp(hexVersion, REG_O5) == 0)) || (strcmp(hexVersion, REG_35) == 0)) {
             skipStatus = true;
             Serial.println("HAVE TIER GOT 5");
             delay(100);
@@ -401,13 +433,25 @@ void loop() {
             Serial.println("WAITING FOR CODE 04");
         }
 
-
         if (waitForDLE == true && (strcmp(hexVersion, ZERO) == 0)) {
-            Serial.println("RECEIVED DLE...");  
+            Serial.println("RECEIVED DLE AND 0...");  
             Serial1.write('\x04');
             skipStatus = false;
             waitForDLE = false;
         }
+
+        if (waitForTA == true && (strcmp(hexVersion, REG_16) == 0)) {
+            Serial.println("RECEIVED TA AND 16...");  
+            waitForTA = false;
+            delay(100);
+            Serial1.write('\x10');
+            delay(100);
+            Serial1.write('\x30');
+            waitingToSendSTX = true;
+            Serial.println("WAITING FOR 04 TO SEND STX...");
+        }
+
+
 
         switch(ch) {
             case 'C':
@@ -483,7 +527,35 @@ void loop() {
         }
     }
 
-    delay(1);
+    // uint32_t newCode = generateCode();
+    // Serial.println("Generated Code");
+    // Serial.println(newCode);
+
+
+    if (WiFi.status() == WL_CONNECTED) {
+        struct tm timeinfo;
+        if (!getLocalTime(&timeinfo)) {
+            Serial.println("Failed to obtain time");
+        }
+        char generatedCode[5];
+        char generatedCodeASCII[5];
+        sprintf(generatedCode, "%03d", random(0, 1000));
+        sprintf(generatedCode + strlen(generatedCode), "%d", timeinfo.tm_mday);
+
+        Serial.println("GENERATED CODE");
+        Serial.println(generatedCode);
+        
+        char convertedHex[5];
+        uint8_t i;
+        char *fullval = "\\x";
+        for (i = 0; i < 5; i++) {
+            sprintf(convertedHex, "\\x%02X", generatedCode[i]);
+            // strcat(fullval, convertedHex)
+            Serial.println(convertedHex);
+        }
+    }
+    
+    delay(1000);
 }
 
 ////////
@@ -547,4 +619,16 @@ void StopBuilding() {
     icsDigits = 0;
     sequenceFail = 0;
     strcpy(previousICSChar,"");
+}
+
+////////
+// Gen code
+int generateCode () {
+    static int randSeed, needsInit = 1;
+    if (needsInit) {                      // This bit only done once.
+        randSeed = time(0);
+        needsInit = 0;
+    }
+    randSeed = (randSeed * 32719 + 3) % 32749;
+    return (randSeed % 5) + 1;
 }
