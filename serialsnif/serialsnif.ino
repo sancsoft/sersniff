@@ -107,6 +107,12 @@ char previousICSChar[5];
 bool buildCode = false;
 bool codeDetermined = false;
 uint8_t sequenceFail = 0;
+bool skipStatus = false;
+bool waitForDLE = false;
+bool waitForFinalDLE = false;
+bool sendCode = false;
+bool waitForTA = false;
+bool waitingToSendSTX = false;
 
 
 
@@ -160,12 +166,6 @@ void setup() {
     }
 }
 
-
-bool skipStatus = false;
-bool waitForDLE = false;
-bool sendCode = false;
-bool waitForTA = false;
-bool waitingToSendSTX = false;
 ////////
 // Loop
 // Send the data received on serial 1 to serial 2 and vice versa. Also sends a copy
@@ -362,6 +362,7 @@ void loop() {
             Serial1.write('\x03');
             waitForDLE = true;
             Serial.println("WAITING FOR FINAL DLE...");
+            waitForFinalDLE = true;
         }
 
         if (strcmp(hexVersion, REG_OE) == 0) {
@@ -434,10 +435,15 @@ void loop() {
         }
 
         if (waitForDLE == true && (strcmp(hexVersion, ZERO) == 0)) {
-            Serial.println("RECEIVED DLE AND 0...");  
+            Serial.println("RECEIVED DLE AND 0...");
             Serial1.write('\x04');
             skipStatus = false;
             waitForDLE = false;
+
+            if (waitForFinalDLE == true) {
+                Serial.println("GOT FINAL DLE...");
+                StopBuilding();
+            }
         }
 
         if (waitForTA == true && (strcmp(hexVersion, REG_16) == 0)) {
@@ -620,6 +626,12 @@ void StopBuilding() {
     icsDigits = 0;
     sequenceFail = 0;
     strcpy(previousICSChar,"");
+    skipStatus = false;
+    waitForDLE = false;
+    sendCode = false;
+    waitForTA = false;
+    waitingToSendSTX = false;
+    waitForFinalDLE = false;
 }
 
 ////////
