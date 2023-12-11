@@ -26,12 +26,12 @@
 // const char* ssid = "SANCSOFT";
 // const char* password =  "aoxomoxoa";
 
-// const char* ssid     = "Dencar_ClassyClean";
-// const char* password =  "LtYCSPEPfeUEjsgPnzzREP5D";
-// const char* staticIP = "10.1.135.70";
+const char* ssid     = "Dencar_ClassyClean";
+const char* password =  "LtYCSPEPfeUEjsgPnzzREP5D";
+const char* staticIP = "10.1.135.70";
 
-const char* ssid     = "TylerTestNet";
-const char* password =  "";
+// const char* ssid     = "TylerTestNet";
+// const char* password =  "";
 
 WiFiServer inServer(8080);
 WiFiServer outServer(8081);
@@ -41,9 +41,9 @@ WiFiClient outClient;
 WiFiClient ioClient;
 
 
-// IPAddress local_IP(10, 1, 135, 70);
-// IPAddress gateway(10, 1, 135, 1);
-// IPAddress subnet(255, 255, 255, 0);
+IPAddress local_IP(10, 1, 135, 70);
+IPAddress gateway(10, 1, 135, 1);
+IPAddress subnet(255, 255, 255, 0);
 
 
 // Time
@@ -448,6 +448,7 @@ void loop() {
             delay(100);
             Serial1.write('\x30');
             waitingToSendSTX = true;
+            skipStatus = true;
             Serial.println("WAITING FOR 04 TO SEND STX...");
         }
 
@@ -532,28 +533,28 @@ void loop() {
     // Serial.println(newCode);
 
 
-    if (WiFi.status() == WL_CONNECTED) {
-        struct tm timeinfo;
-        if (!getLocalTime(&timeinfo)) {
-            Serial.println("Failed to obtain time");
-        }
-        char generatedCode[5];
-        char generatedCodeASCII[5];
-        sprintf(generatedCode, "%03d", random(0, 1000));
-        sprintf(generatedCode + strlen(generatedCode), "%d", timeinfo.tm_mday);
+    // if (WiFi.status() == WL_CONNECTED) {
+    //     struct tm timeinfo;
+    //     if (!getLocalTime(&timeinfo)) {
+    //         Serial.println("Failed to obtain time");
+    //     }
+    //     char generatedCode[5];
+    //     char generatedCodeASCII[5];
+    //     sprintf(generatedCode, "%03d", random(0, 1000));
+    //     sprintf(generatedCode + strlen(generatedCode), "%d", timeinfo.tm_mday);
 
-        Serial.println("GENERATED CODE");
-        Serial.println(generatedCode);
+    //     Serial.println("GENERATED CODE");
+    //     Serial.println(generatedCode);
         
-        char convertedHex[5];
-        uint8_t i;
-        char *fullval = "\\x";
-        for (i = 0; i < 5; i++) {
-            sprintf(convertedHex, "\\x%02X", generatedCode[i]);
-            // strcat(fullval, convertedHex)
-            Serial.println(convertedHex);
-        }
-    }
+    //     char convertedHex[5];
+    //     uint8_t i;
+    //     char *fullval = "\\x";
+    //     for (i = 0; i < 5; i++) {
+    //         sprintf(convertedHex, "\\x%02X", generatedCode[i]);
+    //         // strcat(fullval, convertedHex)
+    //         Serial.println(convertedHex);
+    //     }
+    // }
     
     delay(1000);
 }
