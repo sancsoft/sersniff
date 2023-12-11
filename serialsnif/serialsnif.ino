@@ -327,18 +327,24 @@ void loop() {
             Serial1.write('\x30');
             delay(10);
             Serial1.write('\x31');
+
+            // Additional code - CRC?
             delay(10);
             Serial1.write('\x38');
             delay(10);
             Serial1.write('\x30');
             delay(10);
             Serial1.write('\x30');
+
+            //3 0 Y
             delay(10);
             Serial1.write('\x33');
             delay(10);
             Serial1.write('\x30');
             delay(10);
             Serial1.write('\x59');
+
+            // Remaining letters
             delay(10);
             Serial1.write('\x03');
             delay(10);
