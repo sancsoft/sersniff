@@ -295,53 +295,53 @@ void loop() {
             sendCode = false;
             Serial.println("SENDING CODE");
             
-            delay(100);
+            delay(10);
             Serial1.write('\x02');
 
             //Code
-            delay(100);
+            delay(10);
             Serial1.write('\x39');
-            delay(100);
+            delay(10);
             Serial1.write('\x33');
-            delay(100);
+            delay(10);
             Serial1.write('\x38');
-            delay(100);
+            delay(10);
             Serial1.write('\x37');
-            delay(100);
+            delay(10);
             Serial1.write('\x33');
 
             Serial.println("SENDING RESP");
             // RESP
-            delay(100);
+            delay(10);
             Serial1.write('\x20');
-            delay(100);
+            delay(10);
             Serial1.write('\x20');
-            delay(100);
+            delay(10);
             Serial1.write('\x20');
-            delay(100);
+            delay(10);
             Serial1.write('\x20');
-            delay(100);
+            delay(10);
             Serial1.write('\x20');
 
-            delay(100);
+            delay(10);
             Serial1.write('\x30');
-            delay(100);
+            delay(10);
             Serial1.write('\x31');
-            delay(100);
+            delay(10);
             Serial1.write('\x38');
-            delay(100);
+            delay(10);
             Serial1.write('\x30');
-            delay(100);
+            delay(10);
             Serial1.write('\x30');
-            delay(100);
+            delay(10);
             Serial1.write('\x33');
-            delay(100);
+            delay(10);
             Serial1.write('\x30');
-            delay(100);
+            delay(10);
             Serial1.write('\x59');
-            delay(100);
+            delay(10);
             Serial1.write('\x03');
-            delay(100);
+            delay(10);
             Serial1.write('\x76');
 
             waitForDLE = true;
@@ -350,15 +350,15 @@ void loop() {
         }
         else if (waitingToSendSTX == true && (strcmp(hexVersion, STATUS_RESP) == 0)) {
             Serial.println("SENDING STX...");
-            delay(100);
+            delay(10);
             Serial1.write('\x02');
-            delay(100);
+            delay(10);
             Serial1.write('\x30');
-            delay(100);
+            delay(10);
             Serial1.write('\x30');
-            delay(100);
+            delay(10);
             Serial1.write('\x03');
-            delay(100);
+            delay(10);
             Serial1.write('\x03');
             waitForDLE = true;
             Serial.println("WAITING FOR FINAL DLE...");
@@ -369,21 +369,21 @@ void loop() {
             waitForDLE = true;
             Serial.println("RESPONDING TO 0E...");
             Serial.print(ch);
-            delay(100);
+            delay(10);
             Serial1.write('\x10');
-            delay(100);
+            delay(10);
             Serial1.write('\x30');
-            delay(100);
+            delay(10);
             Serial1.write('\x02');
-            delay(100);
+            delay(10);
             Serial1.write('\x30');
-            delay(100);
+            delay(10);
             Serial1.write('\x31');
-            delay(100);
+            delay(10);
             Serial1.write('\x03');
-            delay(100);
+            delay(10);
             Serial1.write('\x02');
-            delay(100);
+            delay(10);
             
             waitForDLE = true;
             Serial.println("WAIT FOR DLE...");
@@ -393,29 +393,29 @@ void loop() {
             skipStatus = true;
             Serial.println("RESPONDING TO 07...");
             Serial.print(ch);
-            delay(100);
+            delay(10);
             Serial1.write('\x10');
-            delay(100);
+            delay(10);
             Serial1.write('\x30');
-            delay(100);
+            delay(10);
             Serial1.write('\x02');
-            delay(100);
+            delay(10);
             Serial1.write('\x30');
-            delay(100);
+            delay(10);
             Serial1.write('\x31');
-            delay(100);
+            delay(10);
             Serial1.write('\x30');
-            delay(100);
+            delay(10);
             Serial1.write('\x30');
-            delay(100);
+            delay(10);
             Serial1.write('\x30');
-            delay(100);
+            delay(10);
             Serial1.write('\x30');
-            delay(100);
+            delay(10);
             Serial1.write('\x03');
-            delay(100);
+            delay(10);
             Serial1.write('\x02');
-            delay(100);
+            delay(10);
             
             waitForDLE = true;
             Serial.println("WAIT FOR DLE...");
@@ -424,9 +424,9 @@ void loop() {
         if (tierDetermined == true && ((strcmp(hexVersion, REG_O5) == 0)) || (strcmp(hexVersion, REG_35) == 0)) {
             skipStatus = true;
             Serial.println("HAVE TIER GOT 5");
-            delay(100);
+            delay(10);
             Serial1.write('\x10');
-            delay(100);
+            delay(10);
             Serial1.write('\x30');
 
             sendCode = true;
@@ -443,9 +443,9 @@ void loop() {
         if (waitForTA == true && (strcmp(hexVersion, REG_16) == 0)) {
             Serial.println("RECEIVED TA AND 16...");  
             waitForTA = false;
-            delay(100);
+            delay(10);
             Serial1.write('\x10');
-            delay(100);
+            delay(10);
             Serial1.write('\x30');
             waitingToSendSTX = true;
             skipStatus = true;
