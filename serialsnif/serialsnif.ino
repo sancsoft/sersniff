@@ -29,6 +29,7 @@
 const char* ssid     = "Dencar_ClassyClean";
 const char* password =  "LtYCSPEPfeUEjsgPnzzREP5D";
 const char* staticIP = "10.1.135.70";
+bool connectToWIFI = false;
 
 // const char* ssid     = "TylerTestNet";
 // const char* password =  "";
@@ -139,7 +140,7 @@ void setup() {
 
     // Connect to the Wifi network
     delay(1000);
-    if (*ssid !=0)
+    if (*ssid !=0 && connectToWIFI)
     {
         // WiFi.config(local_IP, gateway, subnet);
         WiFi.begin(ssid, password);
@@ -166,11 +167,42 @@ void setup() {
     }
 }
 
+uint8_t exampleMessage[19] {
+                      0x39, 0x33, 0x38, 0x37, 0x33, // code 93873
+                      0x20, 0x20, 0x20, 0x20, 0x20, // spaces
+                      0x30, 0x31, 0x38, 0x30, 0x30, // amount = 18
+                      0x33, 0x30, // 30 days
+                      0x59, // Y for on
+                      0x03 
+                     };
+                     // CRC results in 76
+
+uint8_t exampleMessage2[19] {
+                      0x38, 0x35, 0x39, 0x39, 0x32, // code 85992
+                      0x20, 0x20, 0x20, 0x20, 0x20, // spaces
+                      0x30, 0x31, 0x30, 0x30, 0x30, // amount = 10
+                      0x33, 0x30, // 30 days
+                      0x59, // Y for on
+                      0x03
+                     };
+                     // CRC results in 77
+
+uint8_t exampleMessage3[19] {
+                      0x39, 0x31, 0x35, 0x33, 0x37, // code 91537
+                      0x20, 0x20, 0x20, 0x20, 0x20, // spaces
+                      0x30, 0x31, 0x34, 0x30, 0x30, // amount = 14
+                      0x33, 0x30, // 30 days
+                      0x59, // Y for on
+                      0x03 
+                     };
+                     // CRC results in 75
+
 ////////
 // Loop
 // Send the data received on serial 1 to serial 2 and vice versa. Also sends a copy
 // to the sockets if anyone is listening - in (raw), out (raw), io (ascii printout)
 // An ascii printout is also sent to the debug port.
+
 void loop() {
 
     char ch;
@@ -179,7 +211,7 @@ void loop() {
     int ICSVal;
 
     // handle inbound connections on the socket servers
-    if (*ssid != 0)
+    if (*ssid != 0 && connectToWIFI)
     {
         if (!inClient.connected())
         {
@@ -209,70 +241,8 @@ void loop() {
         Serial.println();
         Serial.print(ch);
         Serial.println();
-
-        
-
-        // if (tierDetermined) {
-        //     if (buildCode) {
-        //         if (icsDigits < 5) {
-        //             if (isdigit(ch)) {
-        //                 icsCode += ch;
-        //                 icsDigits++;
-
-        //                 if (icsDigits == 5) {
-        //                     Serial.println("Generated code - " + icsCode);
-        //                     PostPumpCode(icsCode);
-        //                     StopBuilding();
-        //                 }
-        //             }
-        //             else {
-        //                 Serial.println("Value is not a digit");
-        //                 StopBuilding();
-        //             }
-        //         }
-        //         else {
-        //             Serial.println("Generated code longer than expected");
-        //             StopBuilding();
-        //         }
-        //     }
-        //     else {
-        //         if (strcmp(hexVersion, DLE) == 0) {
-        //             Serial.println("Code gen check 1");
-        //             memcpy(previousICSChar, hexVersion, sizeof(hexVersion));
-        //         }
-        //         else if (strcmp(hexVersion, ZERO) == 0) {
-        //             if (strcmp(previousICSChar, DLE) == 0) {
-        //                 memcpy(previousICSChar, hexVersion, sizeof(hexVersion));
-        //                 Serial.println("Code gen check 2");
-        //             }
-        //             else {
-        //                 Serial.println("Previous value not 10");
-        //                 StopBuilding();
-        //             }
-        //         }
-        //         else if (strcmp(hexVersion, STX) == 0) {
-        //             if (strcmp(previousICSChar, ZERO) == 0) {
-        //                 memcpy(previousICSChar, hexVersion, sizeof(hexVersion));
-        //                 Serial.println("Code gen check 3");
-        //                 buildCode = true;
-        //                 Serial.println("Start code building...");
-        //             }
-        //             else {
-        //                 Serial.println("Previous value not 30");
-        //                 StopBuilding();
-        //             }
-        //         }
-        //         else {
-        //             Serial.println("Value not in sequence");
-        //             if (++sequenceFail >= 5) {
-        //                 Serial.println("Code sequence failed, resetting");
-        //                 StopBuilding();
-        //                 sequenceFail = 0;
-        //             }
-        //         }
-        //     }
-        // }
     }
+
     // Mirror the output port (serial1) to the input port (serial2)
     while (Serial1.available() > 0) {
         ch = Serial1.read();
@@ -540,6 +510,19 @@ void loop() {
         }
     }
 
+    uint8_t i;
+    uint32_t resultingXOR = 0;
+    char hexXOR[5];
+    for (i = 0; i < 19; i++) {
+        Serial.print("XORING ");
+        Serial.print(exampleMessage3[i]);
+        resultingXOR = resultingXOR ^ exampleMessage3[i];
+    }
+
+    Serial.println("RESULTING XOR...");
+    sprintf(hexXOR, "%02X", resultingXOR);
+    Serial.println(hexXOR);
+
     // uint32_t newCode = generateCode();
     // Serial.println("Generated Code");
     // Serial.println(newCode);
@@ -568,7 +551,7 @@ void loop() {
     //     }
     // }
     
-    delay(1);
+    delay(1000);
 }
 
 ////////
