@@ -278,8 +278,8 @@ void loop() {
             Serial.println("CALCULATING BCC");
             
             for (i = 0; i < 19; i++) {
-                resultingXOR = resultingXOR ^ exampleMessage3[i];
-                sprintf(sendVal, "\\x", exampleMessage3[i]);
+                resultingXOR = resultingXOR ^ exampleMessage2[i];
+                sprintf(sendVal, "\\x%02X", exampleMessage2[i]);
                 delay(10);
                 Serial1.write(sendVal);
             }
