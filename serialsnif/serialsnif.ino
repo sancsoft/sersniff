@@ -30,7 +30,7 @@
 const char* ssid     = "Dencar_ClassyClean";
 const char* password =  "LtYCSPEPfeUEjsgPnzzREP5D";
 const char* staticIP = "10.1.135.70";
-bool connectToWIFI = false;
+bool connectToWIFI = true;
 
 // const char* ssid     = "TylerTestNet";
 // const char* password =  "";
@@ -101,6 +101,13 @@ char previousRegChar = ' ';
 bool buildRequest = false;
 bool tierDetermined = false;
 
+// Gen code
+#define CODESTRING "28764931"
+#define CODEMASK 0x07
+#define CHARSIZE 3
+#define CODESIZE 5
+
+
 //Code building
 String icsCode = "";
 uint8_t icsDigits = 0;
@@ -115,14 +122,8 @@ bool waitForFinalDLE = false;
 bool sendCode = false;
 bool waitForTA = false;
 bool waitingToSendSTX = false;
-uint32_t codeCount = 0;
-
-////////
-// Gen code
-#define CODESTRING "28764931"
-#define CODEMASK 0x07
-#define CHARSIZE 3
-#define CODESIZE 5
+uint32_t codeCount = 1;
+char washCode[CODESIZE+1];
 
 #define EEPROM_SIZE 2
 
@@ -181,7 +182,7 @@ void setup() {
     codeCount = readCount();
 
     if (codeCount > 30000) {
-        codeCount = 0;
+        codeCount = 1;
         Serial.println("RESET CODE COUNT...");
     }
 }
@@ -302,18 +303,27 @@ void loop() {
             uint8_t resultingXOR = 0;
             char hexXOR[5];
             char sendVal[5];
-            Serial.println("CALCULATING BCC");
             
+            
+            generateCode(washCode);
+            
+            Serial.println("SENDING...");
             for (i = 0; i < 19; i++) {
-                resultingXOR = resultingXOR ^ exampleMessage3[i];
+                if (i < 5) {
+                    fullMessage[i] = washCode[i];
+                }
+                
+                resultingXOR = resultingXOR ^ fullMessage[i];
                 delay(10);
-                Serial.println("SENDING...");
-                Serial.println(exampleMessage3[i]);
-                Serial1.write(exampleMessage3[i]);
+                
+                Serial.println(fullMessage[i]);
+                Serial1.write(fullMessage[i]);
             }
 
             Serial.println("RESULTING XOR...");
-            Serial.println(resultingXOR);
+            sprintf(hexXOR, "\\x%02X", resultingXOR);
+            Serial.println(hexXOR);
+
             delay(10);
             Serial1.write(resultingXOR);
 
@@ -415,6 +425,9 @@ void loop() {
 
             if (waitForFinalDLE == true) {
                 Serial.println("GOT FINAL DLE...");
+
+                PostPumpCode(washCode);
+
                 StopBuilding();
             }
         }
@@ -505,46 +518,8 @@ void loop() {
         }
     }
 
-    // Calculate  BCC
-    // uint8_t i;
-    uint32_t resultingXOR = 0;
-    char hexXOR[5];
-    char sendVal[5];
-    char convertedCodeHex[5];
-    char washCode[CODESIZE+1];
-    uint8_t testHex = 0;
-    delay(10);
-    generateCode(washCode);
-    
-    uint8_t i;
-
-    washCode[0] = '9';
-    washCode[1] = '3';
-    washCode[2] = '8';
-    washCode[3] = '7';
-    washCode[4] = '3';
-
-    Serial.println("CALCULATING BCC...");
-    for (i = 0; i < 19; i++) {
-
-        if (i < 5) {
-            fullMessage[i] = washCode[i];
-        }
-
-        resultingXOR = resultingXOR ^ fullMessage[i];
-        delay(10);
-        
-        Serial.println("SENDING...");
-        sprintf(sendVal, "\\x%02X", fullMessage[i]);
-        Serial.println(sendVal);
-    }
-
-    Serial.println("RESULTING XOR...");
-    sprintf(hexXOR, "\\x%02X", resultingXOR);
-    Serial.println(hexXOR);
-            
-
-    delay(10000);
+    // exampleGen();
+    delay(1);
 }
 
 ////////
@@ -655,9 +630,8 @@ void generateCode(char* generatedCode) {
     codeCount++;
 
     strcpy(generatedCode, washCode);
-    // *generatedCode = washCode;
 
-    // writeCount(codeCount);
+    writeCount(codeCount);
 }
 
 void writeCount(uint32_t savedCount) {
@@ -686,4 +660,45 @@ uint32_t readCount() {
     Serial.println(converted);
 
     return converted;
+}
+
+void exampleGen() {
+    // Calculate  BCC
+    uint32_t resultingXOR = 0;
+    char hexXOR[5];
+    char sendVal[5];
+    char convertedCodeHex[5];
+    char washCode[CODESIZE+1];
+    uint8_t testHex = 0;
+    uint8_t i;
+    delay(10);
+    generateCode(washCode);
+    
+
+    // washCode[0] = '9';
+    // washCode[1] = '3';
+    // washCode[2] = '8';
+    // washCode[3] = '7';
+    // washCode[4] = '3';
+
+    Serial.println("CALCULATING BCC...");
+    for (i = 0; i < 19; i++) {
+
+        if (i < 5) {
+            fullMessage[i] = washCode[i];
+        }
+
+        resultingXOR = resultingXOR ^ fullMessage[i];
+        delay(10);
+        
+        Serial.println("SENDING...");
+        sprintf(sendVal, "\\x%02X", fullMessage[i]);
+        Serial.println(sendVal);
+    }
+
+    Serial.println("RESULTING XOR...");
+    sprintf(hexXOR, "\\x%02X", resultingXOR);
+    Serial.println(hexXOR);
+
+    PostPumpCode(washCode);
 }
