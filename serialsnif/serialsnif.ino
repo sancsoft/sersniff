@@ -117,6 +117,12 @@ bool waitForTA = false;
 bool waitingToSendSTX = false;
 uint32_t codeCount = 0;
 
+////////
+// Gen code
+#define CODESTRING "28764931"
+#define CODEMASK 0x07
+#define CHARSIZE 3
+#define CODESIZE 5
 
 #define EEPROM_SIZE 2
 
@@ -204,6 +210,16 @@ uint8_t exampleMessage3[19] {
                       0x39, 0x31, 0x35, 0x33, 0x37, // code 91537
                       0x20, 0x20, 0x20, 0x20, 0x20, // spaces
                       0x30, 0x31, 0x34, 0x30, 0x30, // amount = 14
+                      0x33, 0x30, // 30 days
+                      0x59, // Y for on
+                      0x03 
+                     };
+                     // CRC results in 75
+
+uint8_t fullMessage[19] {
+                      0x30, 0x30, 0x30, 0x30, 0x30, // blank code
+                      0x20, 0x20, 0x20, 0x20, 0x20, // spaces
+                      0x30, 0x31, 0x38, 0x30, 0x30, // amount = 18
                       0x33, 0x30, // 30 days
                       0x59, // Y for on
                       0x03 
@@ -489,81 +505,46 @@ void loop() {
         }
     }
 
-    
-
-    // uint32_t newCode = generateCode();
-    // Serial.println("Generated Code");
-    // Serial.println(newCode);
-
-
-    // if (WiFi.status() == WL_CONNECTED) {
-    //     struct tm timeinfo;
-    //     if (!getLocalTime(&timeinfo)) {
-    //         Serial.println("Failed to obtain time");
-    //     }
-    //     char generatedCode[5];
-    //     char generatedCodeASCII[5];
-    //     sprintf(generatedCode, "%03d", random(0, 1000));
-    //     sprintf(generatedCode + strlen(generatedCode), "%d", timeinfo.tm_mday);
-
-    //     Serial.println("GENERATED CODE");
-    //     Serial.println(generatedCode);
-        
-    //     char convertedHex[5];
-    //     uint8_t i;
-    //     char *fullval = "\\x";
-    //     for (i = 0; i < 5; i++) {
-    //         sprintf(convertedHex, "\\x%02X", generatedCode[i]);
-    //         // strcat(fullval, convertedHex)
-    //         Serial.println(convertedHex);
-    //     }
-    // }
-
     // Calculate  BCC
     // uint8_t i;
-    // uint32_t resultingXOR = 0;
-    // char hexXOR[5];
-    // char sendVal[5];
-    // Serial.println("CALCULATING BCC");
-
-    // delay(10);
-    // char *resultingCode = generateCodeV2();
-
-    // char codeArray[5]; 
-    // sprintf(codeArray,"%ld", resultingCode);
-    // Serial.println(resultingCode);
+    uint32_t resultingXOR = 0;
+    char hexXOR[5];
+    char sendVal[5];
+    char convertedCodeHex[5];
+    char washCode[CODESIZE+1];
+    uint8_t testHex = 0;
+    delay(10);
+    generateCode(washCode);
     
-    // for (i = 0; i < 19; i++) {
-    //     resultingXOR = resultingXOR ^ exampleMessage2[i];
-    //     sprintf(sendVal, "\\x%02X", exampleMessage2[i]);
-    //     delay(10);
-    //     Serial1.write(sendVal);
-    // }
+    uint8_t i;
 
-    // Serial.println("RESULTING XOR...");
-    // sprintf(hexXOR, "\\x%02X", resultingXOR);
-    // Serial.println(hexXOR);
-    // delay(10);
-    // Serial1.write(hexXOR);
-    
-    // uint8_t i;
-    // uint32_t resultingXOR = 0;
-    // char hexXOR[5];
-    // char convertedArray[5];
-    // String sendVal;
-    // Serial.println("CALCULATING BCC");
+    washCode[0] = '9';
+    washCode[1] = '3';
+    washCode[2] = '8';
+    washCode[3] = '7';
+    washCode[4] = '3';
 
-    // for (i = 0; i < 19; i++) {
-    //     resultingXOR = resultingXOR ^ exampleMessage[i];
-    //     sprintf(convertedArray, "\\x%02X", exampleMessage[i]);
-    //     delay(10);
-    //     Serial.println("SENDING...");
-    //     sendVal = convertedArray;
-    //     Serial.println(sendVal);
-    //     // Serial1.write(sendVal);
-    // }
+    Serial.println("CALCULATING BCC...");
+    for (i = 0; i < 19; i++) {
 
-    delay(1);
+        if (i < 5) {
+            fullMessage[i] = washCode[i];
+        }
+
+        resultingXOR = resultingXOR ^ fullMessage[i];
+        delay(10);
+        
+        Serial.println("SENDING...");
+        sprintf(sendVal, "\\x%02X", fullMessage[i]);
+        Serial.println(sendVal);
+    }
+
+    Serial.println("RESULTING XOR...");
+    sprintf(hexXOR, "\\x%02X", resultingXOR);
+    Serial.println(hexXOR);
+            
+
+    delay(10000);
 }
 
 ////////
@@ -635,22 +616,7 @@ void StopBuilding() {
     waitForFinalDLE = false;
 }
 
-////////
-// Gen code
-int generateCode () {
-    static int randSeed, needsInit = 1;
-    if (needsInit) {                      // This bit only done once.
-        randSeed = time(0);
-        needsInit = 0;
-    }
-    randSeed = (randSeed * 32719 + 3) % 32749;
-    return (randSeed % 5) + 1;
-}
 
-#define CODESTRING "28764931"
-#define CODEMASK 0x07
-#define CHARSIZE 3
-#define CODESIZE 5
 
 uint32_t HashUInt32(uint32_t x)
 {
@@ -679,7 +645,7 @@ void EncodeHash(uint32_t x, char* str)
     *str = '\0';
 }
 
-char * generateCodeV2() {
+void generateCode(char* generatedCode) {
     uint32_t hash, decoded;
     char washCode[CODESIZE+1];
     
@@ -688,8 +654,10 @@ char * generateCodeV2() {
     printf("GENERATED CODE: %ld,%ld,%s\n", codeCount, hash, washCode);
     codeCount++;
 
+    strcpy(generatedCode, washCode);
+    // *generatedCode = washCode;
+
     // writeCount(codeCount);
-    return washCode;
 }
 
 void writeCount(uint32_t savedCount) {
