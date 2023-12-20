@@ -20,6 +20,7 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 #include <time.h>
+#include <EEPROM.h>
 
 // Wireless configuration. If the station id is "", wireless is disabled 
 // for the program and sockets aren't used
@@ -114,15 +115,19 @@ bool waitForFinalDLE = false;
 bool sendCode = false;
 bool waitForTA = false;
 bool waitingToSendSTX = false;
+uint32_t codeCount = 0;
 
 
-
+#define EEPROM_SIZE 2
 
 ////////
 // Setup
 // One-time setup function; configures the serial port and connects to the wireless
 // network.  Creates the listening services for in, out, and io sockets.
 void setup() {
+
+    EEPROM.begin(EEPROM_SIZE);
+    
 
     // Configure the rx/tx buffers for the mirrored serial ports
     Serial1.setRxBufferSize(2048);
@@ -164,6 +169,13 @@ void setup() {
     else
     {
         Serial.println("No SSID provided. Wireless won't be used.");
+    }
+
+    delay(1000);
+    codeCount = readCount();
+
+    if (codeCount > 30000) {
+        codeCount = 0;
     }
 }
 
@@ -569,21 +581,28 @@ void loop() {
     char hexXOR[5];
     char sendVal[5];
     Serial.println("CALCULATING BCC");
-    
-    for (i = 0; i < 19; i++) {
-        resultingXOR = resultingXOR ^ exampleMessage2[i];
-        sprintf(sendVal, "\\x%02X", exampleMessage2[i]);
-        delay(10);
-        Serial1.write(sendVal);
-    }
 
-    Serial.println("RESULTING XOR...");
-    sprintf(hexXOR, "\\x%02X", resultingXOR);
-    Serial.println(hexXOR);
     delay(10);
-    Serial1.write(hexXOR);
+    char *resultingCode = generateCodeV2();
+
+    char codeArray[5]; 
+    sprintf(codeArray,"%ld", resultingCode);
+    Serial.println(resultingCode);
     
-    delay(1000);
+    // for (i = 0; i < 19; i++) {
+    //     resultingXOR = resultingXOR ^ exampleMessage2[i];
+    //     sprintf(sendVal, "\\x%02X", exampleMessage2[i]);
+    //     delay(10);
+    //     Serial1.write(sendVal);
+    // }
+
+    // Serial.println("RESULTING XOR...");
+    // sprintf(hexXOR, "\\x%02X", resultingXOR);
+    // Serial.println(hexXOR);
+    // delay(10);
+    // Serial1.write(hexXOR);
+    
+    delay(10000);
 }
 
 ////////
@@ -665,4 +684,77 @@ int generateCode () {
     }
     randSeed = (randSeed * 32719 + 3) % 32749;
     return (randSeed % 5) + 1;
+}
+
+#define CODESTRING "28764931"
+#define CODEMASK 0x07
+#define CHARSIZE 3
+#define CODESIZE 5
+
+uint32_t HashUInt32(uint32_t x)
+{
+    x = ((x >>16) ^ x) * 0x45d9f3b;
+    x = ((x >>16) ^ x) * 0x45d9f3b;
+    x = (x >> 16) ^ x;
+    return x;
+}
+
+uint32_t UnhashUInt32(uint32_t x)
+{
+    x = ((x >>16) ^ x) * 0x119de1f3;
+    x = ((x >>16) ^ x) * 0x119de1f3;
+    x = (x >> 16) ^ x;
+    return x;
+}
+
+void EncodeHash(uint32_t x, char* str)
+{
+    int i;
+    for (i=0; i < CODESIZE; i++)
+    {
+        *str++ = CODESTRING[ x & CODEMASK ];
+        x >>= CHARSIZE;
+    }
+    *str = '\0';
+}
+
+char * generateCodeV2() {
+    uint32_t hash, decoded;
+    char washCode[CODESIZE+1];
+    
+    hash = HashUInt32(codeCount);
+    EncodeHash(codeCount, washCode);
+    printf("GENERATED CODE: %ld,%ld,%s\n", codeCount, hash, washCode);
+    codeCount++;
+
+    // writeCount(codeCount);
+    return washCode;
+}
+
+void writeCount(uint32_t savedCount) {
+    uint8_t highByte = 0;
+    uint8_t lowByte = 0;
+
+    highByte = (savedCount & 0xFF00) >> 8;
+    lowByte = savedCount & 0x00FF;
+
+    Serial.println("SAVING COUNT...");
+    Serial.println(savedCount);
+    
+    EEPROM.write(0, lowByte);
+    EEPROM.write(1, highByte);
+    EEPROM.commit();
+}
+
+uint32_t readCount() {
+    uint8_t readLowValue = EEPROM.read(0);
+    uint8_t readHighValue = EEPROM.read(1);
+    uint32_t convertedHigh = (readHighValue & 0xFF) << 8;
+    uint32_t convertedLow = (readLowValue & 0xFF);
+    uint32_t converted = convertedHigh | readLowValue;
+    
+    Serial.println("READ VALUE...");
+    Serial.println(converted);
+
+    return converted;
 }
