@@ -176,6 +176,7 @@ void setup() {
 
     if (codeCount > 30000) {
         codeCount = 0;
+        Serial.println("RESET CODE COUNT...");
     }
 }
 
@@ -264,12 +265,12 @@ void loop() {
         Serial.print(hexVersion);
         
         Serial.println();
-        Serial.print(ch);
-        Serial.println();
+        // Serial.print(ch);
+        // Serial.println();
 
         if (!skipStatus && (strcmp(hexVersion, STATUS_RESP) == 0)) {
             Serial.println("RESPONDING STATUS WITH 04...");
-            Serial.print(ch);
+            Serial.println(ch);
             delay(1);
             Serial1.write('\x04');
         }
@@ -279,81 +280,26 @@ void loop() {
             
             delay(10);
             Serial1.write('\x02');
-
-
             
             // Calculate  BCC
             uint8_t i;
-            uint32_t resultingXOR = 0;
+            uint8_t resultingXOR = 0;
             char hexXOR[5];
             char sendVal[5];
             Serial.println("CALCULATING BCC");
             
             for (i = 0; i < 19; i++) {
-                resultingXOR = resultingXOR ^ exampleMessage2[i];
-                sprintf(sendVal, "\\x%02X", exampleMessage2[i]);
+                resultingXOR = resultingXOR ^ exampleMessage3[i];
                 delay(10);
-                Serial1.write(sendVal);
+                Serial.println("SENDING...");
+                Serial.println(exampleMessage3[i]);
+                Serial1.write(exampleMessage3[i]);
             }
 
             Serial.println("RESULTING XOR...");
-            sprintf(hexXOR, "\\x%02X", resultingXOR);
-            Serial.println(hexXOR);
+            Serial.println(resultingXOR);
             delay(10);
-            Serial1.write(hexXOR);
-            
-
-            // //Code
-            // delay(10);
-            // Serial1.write('\x39');
-            // delay(10);
-            // Serial1.write('\x33');
-            // delay(10);
-            // Serial1.write('\x38');
-            // delay(10);
-            // Serial1.write('\x37');
-            // delay(10);
-            // Serial1.write('\x33');
-
-            // Serial.println("SENDING RESP");
-            // // RESP
-            // delay(10);
-            // Serial1.write('\x20');
-            // delay(10);
-            // Serial1.write('\x20');
-            // delay(10);
-            // Serial1.write('\x20');
-            // delay(10);
-            // Serial1.write('\x20');
-            // delay(10);
-            // Serial1.write('\x20');
-
-            // delay(10);
-            // Serial1.write('\x30');
-            // delay(10);
-            // Serial1.write('\x31');
-
-            // // Additional code - CRC?
-            // delay(10);
-            // Serial1.write('\x38');
-            // delay(10);
-            // Serial1.write('\x30');
-            // delay(10);
-            // Serial1.write('\x30');
-
-            // //3 0 Y
-            // delay(10);
-            // Serial1.write('\x33');
-            // delay(10);
-            // Serial1.write('\x30');
-            // delay(10);
-            // Serial1.write('\x59');
-
-            // // Remaining letters
-            // delay(10);
-            // Serial1.write('\x03');
-            // delay(10);
-            // Serial1.write('\x76');
+            Serial1.write(resultingXOR);
 
             waitForDLE = true;
             waitForTA = true;
@@ -469,8 +415,6 @@ void loop() {
             Serial.println("WAITING FOR 04 TO SEND STX...");
         }
 
-
-
         switch(ch) {
             case 'C':
                 Serial.println("Started building request...");
@@ -576,18 +520,18 @@ void loop() {
     // }
 
     // Calculate  BCC
-    uint8_t i;
-    uint32_t resultingXOR = 0;
-    char hexXOR[5];
-    char sendVal[5];
-    Serial.println("CALCULATING BCC");
+    // uint8_t i;
+    // uint32_t resultingXOR = 0;
+    // char hexXOR[5];
+    // char sendVal[5];
+    // Serial.println("CALCULATING BCC");
 
-    delay(10);
-    char *resultingCode = generateCodeV2();
+    // delay(10);
+    // char *resultingCode = generateCodeV2();
 
-    char codeArray[5]; 
-    sprintf(codeArray,"%ld", resultingCode);
-    Serial.println(resultingCode);
+    // char codeArray[5]; 
+    // sprintf(codeArray,"%ld", resultingCode);
+    // Serial.println(resultingCode);
     
     // for (i = 0; i < 19; i++) {
     //     resultingXOR = resultingXOR ^ exampleMessage2[i];
@@ -602,7 +546,24 @@ void loop() {
     // delay(10);
     // Serial1.write(hexXOR);
     
-    delay(10000);
+    // uint8_t i;
+    // uint32_t resultingXOR = 0;
+    // char hexXOR[5];
+    // char convertedArray[5];
+    // String sendVal;
+    // Serial.println("CALCULATING BCC");
+
+    // for (i = 0; i < 19; i++) {
+    //     resultingXOR = resultingXOR ^ exampleMessage[i];
+    //     sprintf(convertedArray, "\\x%02X", exampleMessage[i]);
+    //     delay(10);
+    //     Serial.println("SENDING...");
+    //     sendVal = convertedArray;
+    //     Serial.println(sendVal);
+    //     // Serial1.write(sendVal);
+    // }
+
+    delay(1);
 }
 
 ////////
